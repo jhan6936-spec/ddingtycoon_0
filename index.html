@@ -2210,8 +2210,13 @@ function sanitizeExpr(expr) {
   return cleaned;
 }
 
+function normalizeNumericLiterals(expr) {
+  // JS 식 평가에서 05 같은 리터럴은 오류가 날 수 있어 앞자리 0을 정규화
+  return String(expr || '').replace(/\b0+(?=\d)/g, '');
+}
+
 function safeEval(expr) {
-  const cleaned = sanitizeExpr(expr);
+  const cleaned = normalizeNumericLiterals(sanitizeExpr(expr));
   if (!cleaned) return 0;
   // 연속 연산자 같은 엣지는 JS가 처리하지만, 오류는 0으로
   try {
@@ -3640,6 +3645,14 @@ function analyzeEfficiency() {
     });
   }
 
+  const hasShellfishInventory = SHELLFISH_NAMES.some((base) => {
+    return [1, 2, 3].some((star) => {
+      const mat = `${base} ${'★'.repeat(star)}`;
+      return (parseInt(inventory[mat], 10) || 0) > 0;
+    });
+  });
+  const alchemyOnlyMode = !hasShellfishInventory;
+
   const results = [];
   
   const craftNoPromote = { skipShellfishTierConvert: true };
@@ -3651,6 +3664,7 @@ function analyzeEfficiency() {
     if (maxCraft > 0) {
       const isAlchemy = /(희석액|핵|정수|에센스|결정|엘릭서|영약|비약|코어|아쿠티스|광란체|깃털|날개|파편|나우틸러스|무저)/.test(recipe.name);
       const isCraft = recipe.group === 'craft';
+      if (alchemyOnlyMode && !isAlchemy) return;
       const priceMultiplier = isAlchemy ? (1 + effects.alchemyPriceBoost / 100) : (isCraft ? (1 + effects.craftPriceBoost / 100) : 1);
       const adjustedPrice = Math.round((recipe.price || 0) * priceMultiplier);
       const baseTimeSec = isAlchemy ? getBaseAlchemyTimeSec(recipe.name) : Math.max(1, Math.round((recipe.time || 1) * 60));
